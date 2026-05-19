@@ -38,7 +38,7 @@ public class OrderServiceImpl implements OrderService {
             }
         }
         order.setTotalAmount(totalAmount);
-        
+        order.setIsDeleted(false);
         Order savedOrder = orderRepository.save(order);
         return orderMapper.toResponse(savedOrder);
     }
