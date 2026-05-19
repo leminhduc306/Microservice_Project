@@ -28,6 +28,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         Product product = productMapper.fromCreateProductReq(createProductReq);
+        product.setIsDeleted(false);
         return productRepository.save(product);
     }
 }
