@@ -4,16 +4,26 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.test.order_service.clients.ProductClient;
+import vn.test.order_service.dto.ProductDTO;
+import vn.test.order_service.dto.request.DeductStockReq;
+import vn.test.order_service.dto.request.OrderItemReq;
 import vn.test.order_service.dto.request.OrderReq;
+import vn.test.order_service.dto.request.ProductFilter;
 import vn.test.order_service.dto.response.OrderRes;
 import vn.test.order_service.entity.Order;
+import vn.test.order_service.entity.OrderItem;
+import vn.test.order_service.enums.OrderStatus;
 import vn.test.order_service.exception.ApplicationException;
 import vn.test.order_service.mapper.OrderMapper;
+import vn.test.order_service.repository.OrderItemRepository;
 import vn.test.order_service.repository.OrderRepository;
 import vn.test.order_service.service.OrderService;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -22,76 +32,79 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderMapper orderMapper;
+    private final ProductClient productClient;
+    private final OrderItemRepository orderItemRepository;
 
     @Override
     @Transactional
     public OrderRes create(OrderReq orderReq) {
-        Order order = orderMapper.toEntity(orderReq);
-        int totalAmount = 0;
-        if (order.getItems() != null) {
-            final Order finalOrder = order;
-            for (var item : order.getItems()) {
-                item.setOrder(finalOrder);
-                int price = item.getPrice() != null ? item.getPrice() : 0;
-                int quantity = item.getQuantity() != null ? item.getQuantity() : 0;
-                totalAmount += price * quantity;
-            }
-        }
-        order.setTotalAmount(totalAmount);
-        order.setIsDeleted(false);
+        List<String> productIds = orderReq.getItems().stream()
+                .map(OrderItemReq::getProductId)
+                .distinct()
+                .toList();
+
+        List<ProductDTO> products = productClient.getProductsByIds(new ProductFilter(productIds));
+        Map<String, ProductDTO> productPriceMap = new HashMap<>();
+
+        products.forEach(product -> {
+            productPriceMap.put(product.getId(), product);
+        });
+
+        Order order = Order.builder().
+                customerId(orderReq.getCustomerId()).
+                status(OrderStatus.PENDING).
+                totalAmount(0).
+                build();
+
         Order savedOrder = orderRepository.save(order);
-        return orderMapper.toResponse(savedOrder);
-    }
 
-    @Override
-    public OrderRes getById(String id) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ApplicationException("Order not found with id: " + id));
-        return orderMapper.toResponse(order);
-    }
-
-    @Override
-    public List<OrderRes> getAll() {
-        return orderRepository.findAll().stream()
-                .map(orderMapper::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional
-    public OrderRes update(String id, OrderReq orderReq) {
-        Order existingOrder = orderRepository.findById(id)
-                .orElseThrow(() -> new ApplicationException("Order not found with id: " + id));
-        
-        Order updatedData = orderMapper.toEntity(orderReq);
-        existingOrder.setCustomerId(updatedData.getCustomerId());
-        existingOrder.setStatus(updatedData.getStatus());
-        
-        existingOrder.getItems().clear();
         int totalAmount = 0;
-        if (updatedData.getItems() != null) {
-            final Order finalExistingOrder = existingOrder;
-            for (var item : updatedData.getItems()) {
-                item.setOrder(finalExistingOrder);
-                finalExistingOrder.getItems().add(item);
-                
-                int price = item.getPrice() != null ? item.getPrice() : 0;
-                int quantity = item.getQuantity() != null ? item.getQuantity() : 0;
-                totalAmount += price * quantity;
+        List<OrderItem> orderItems = new ArrayList<>();
+        Map<String, Integer> deductQtyMap = new HashMap<>();
+
+        for (OrderItemReq itemDTO : orderReq.getItems()) {
+
+            ProductDTO productDTO = productPriceMap.get(itemDTO.getProductId());
+
+            if (productDTO == null) {
+                throw new ApplicationException(
+                        "Product " + itemDTO.getProductId() + " not existed"
+                );
             }
-        }
-        existingOrder.setTotalAmount(totalAmount);
 
-        Order savedOrder = orderRepository.save(existingOrder);
-        return orderMapper.toResponse(savedOrder);
+            if (itemDTO.getQuantity() > productDTO.getStock()) {
+                throw new ApplicationException(
+                        "Product " + itemDTO.getProductId() + " not enough"
+                );
+            }
+
+            Integer price = productDTO.getPrice();
+
+            OrderItem item = OrderItem.builder()
+                    .orderId(savedOrder.getId())
+                    .productId(itemDTO.getProductId())
+                    .price(price)
+                    .quantity(itemDTO.getQuantity())
+                    .build();
+
+            orderItems.add(item);
+
+            deductQtyMap.merge(itemDTO.getProductId(), itemDTO.getQuantity(), Integer::sum);
+            totalAmount += price * itemDTO.getQuantity();
+        }
+
+        List<DeductStockReq> deductStockReqs = deductQtyMap.entrySet().stream()
+                .map(entry -> new DeductStockReq(entry.getKey(), entry.getValue()))
+                .toList();
+        productClient.deductStock(deductStockReqs);
+
+        List<OrderItem> savedOrderItems = orderItemRepository.saveAll(orderItems);
+
+        savedOrder.setTotalAmount(totalAmount);
+        savedOrder.setItems(savedOrderItems);
+
+        return orderMapper.toResponse(orderRepository.save(savedOrder));
     }
 
-    @Override
-    @Transactional
-    public void delete(String id) {
-        if (!orderRepository.existsById(id)) {
-            throw new ApplicationException("Order not found with id: " + id);
-        }
-        orderRepository.deleteById(id);
-    }
+
 }

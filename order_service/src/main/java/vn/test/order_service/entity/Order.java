@@ -1,8 +1,7 @@
 package vn.test.order_service.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import vn.test.order_service.enums.OrderStatus;
 
 import java.util.List;
@@ -10,7 +9,10 @@ import java.util.List;
 @Entity
 @Getter
 @Setter
+@Builder
+@NoArgsConstructor
 @Table(name = "orders")
+@AllArgsConstructor
 public class Order extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -25,6 +27,7 @@ public class Order extends BaseEntity {
     @Column(name = "total_amount")
     private Integer totalAmount;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "order_id")
     private List<OrderItem> items;
 }

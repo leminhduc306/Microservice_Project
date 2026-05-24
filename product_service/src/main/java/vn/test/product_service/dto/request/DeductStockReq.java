@@ -1,4 +1,4 @@
-package vn.test.order_service.dto.request;
+package vn.test.product_service.dto.request;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -7,7 +7,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class OrderItemReq {
+public class DeductStockReq {
     @NotBlank(message = "productId cannot be blank")
     private String productId;
 

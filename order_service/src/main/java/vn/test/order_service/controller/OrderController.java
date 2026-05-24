@@ -25,24 +25,4 @@ public class OrderController {
         return ResponseEntity.ok(new BaseResponse<>(orderService.create(orderReq), "success"));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<BaseResponse<OrderRes>> getById(@PathVariable String id) {
-        return ResponseEntity.ok(new BaseResponse<>(orderService.getById(id), "success"));
-    }
-
-    @GetMapping
-    public ResponseEntity<BaseResponse<List<OrderRes>>> getAll() {
-        return ResponseEntity.ok(new BaseResponse<>(orderService.getAll(), "success"));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<BaseResponse<OrderRes>> update(@PathVariable String id, @RequestBody @Valid OrderReq orderReq) {
-        return ResponseEntity.ok(new BaseResponse<>(orderService.update(id, orderReq), "success"));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<BaseResponse<Void>> delete(@PathVariable String id) {
-        orderService.delete(id);
-        return ResponseEntity.ok(new BaseResponse<>(null, "deleted successfully"));
-    }
 }
