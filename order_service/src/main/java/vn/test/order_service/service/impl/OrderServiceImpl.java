@@ -2,6 +2,7 @@ package vn.test.order_service.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.test.order_service.clients.ProductClient;
@@ -34,7 +35,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderMapper;
     private final ProductClient productClient;
     private final OrderItemRepository orderItemRepository;
-
+    private final KafkaTemplate<String,Object> kafkaTemplate;
     @Override
     @Transactional
     public OrderRes create(OrderReq orderReq) {
@@ -60,8 +61,6 @@ public class OrderServiceImpl implements OrderService {
 
         int totalAmount = 0;
         List<OrderItem> orderItems = new ArrayList<>();
-        Map<String, Integer> deductQtyMap = new HashMap<>();
-
         for (OrderItemReq itemDTO : orderReq.getItems()) {
 
             ProductDTO productDTO = productPriceMap.get(itemDTO.getProductId());
@@ -86,24 +85,20 @@ public class OrderServiceImpl implements OrderService {
                     .price(price)
                     .quantity(itemDTO.getQuantity())
                     .build();
-
+            item.setIsDeleted(false);
             orderItems.add(item);
-
-            deductQtyMap.merge(itemDTO.getProductId(), itemDTO.getQuantity(), Integer::sum);
             totalAmount += price * itemDTO.getQuantity();
         }
-
-        List<DeductStockReq> deductStockReqs = deductQtyMap.entrySet().stream()
-                .map(entry -> new DeductStockReq(entry.getKey(), entry.getValue()))
-                .toList();
-        productClient.deductStock(deductStockReqs);
 
         List<OrderItem> savedOrderItems = orderItemRepository.saveAll(orderItems);
 
         savedOrder.setTotalAmount(totalAmount);
         savedOrder.setItems(savedOrderItems);
 
-        return orderMapper.toResponse(orderRepository.save(savedOrder));
+        Order createOrder = orderRepository.save(savedOrder);
+        kafkaTemplate.send("order_created", createOrder);
+        log.info("Order created: {}", createOrder);
+        return orderMapper.toResponse(createOrder);
     }
 
 
