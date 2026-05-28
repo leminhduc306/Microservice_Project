@@ -5,7 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.test.product_service.dto.request.CreateProductReq;
-import vn.test.product_service.dto.request.DeductStockReq;
+import vn.test.product_service.dto.request.LockProductItem;
+import vn.test.product_service.dto.request.LockProductReq;
 import vn.test.product_service.dto.request.ProductFilter;
 import vn.test.product_service.entity.Product;
 import vn.test.product_service.exception.ApplicationException;
@@ -14,9 +15,9 @@ import vn.test.product_service.repository.CategoryRepository;
 import vn.test.product_service.repository.ProductRepository;
 import vn.test.product_service.service.ProductService;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -36,7 +37,6 @@ public class ProductServiceImpl implements ProductService {
         }
 
         Product product = productMapper.fromCreateProductReq(createProductReq);
-        product.setIsDeleted(false);
         return productRepository.save(product);
     }
 
@@ -47,27 +47,23 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public void deductStock(List<DeductStockReq> deductStockReqs) {
-        List<String> productIds = deductStockReqs.stream()
-                .map(DeductStockReq::getProductId)
-                .distinct()
-                .toList();
+    public void lock(LockProductReq lockProductReq) {
+        List<LockProductItem> items = lockProductReq.getItems();
 
-        List<Product> products = productRepository.findByIdIn(productIds);
-        Map<String, Product> productMap = new HashMap<>();
-        products.forEach(product -> productMap.put(product.getId(), product));
+        var productIdQuantityMap = items.stream()
+                .collect(Collectors.toMap(LockProductItem::getId, LockProductItem::getQuantity));
 
-        for (DeductStockReq deductStockReq : deductStockReqs) {
-            Product product = productMap.get(deductStockReq.getProductId());
-            if (product == null) {
-                throw new ApplicationException("product not found: " + deductStockReq.getProductId());
-            }
-
-            if (product.getStock() < deductStockReq.getQuantity()) {
-                throw new ApplicationException("product not enough stock: " + deductStockReq.getProductId());
-            }
-            product.setStock(product.getStock() - deductStockReq.getQuantity());
+        List<Product> products = productRepository.findByIdIn(new ArrayList<>(productIdQuantityMap.keySet()));
+        if (products.isEmpty()) {
+            throw new ApplicationException("Product not found");
         }
+
+        products.forEach(product -> {
+            if(product.getStock() < productIdQuantityMap.get(product.getId())) {
+                throw new ApplicationException("Product quantity out of stock");
+            }
+            product.setStock(product.getStock() - productIdQuantityMap.get(product.getId()));
+        });
 
         productRepository.saveAll(products);
     }

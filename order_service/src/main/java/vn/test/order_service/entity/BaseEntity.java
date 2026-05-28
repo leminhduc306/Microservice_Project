@@ -19,7 +19,7 @@ import java.time.Instant;
 @EntityListeners(AuditingEntityListener.class)
 
 public class BaseEntity {
-    private Boolean isDeleted;
+    private Boolean isDeleted = false;
 
     @CreatedBy
     @Column(name = "created_by")

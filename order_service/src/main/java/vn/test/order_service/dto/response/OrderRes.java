@@ -14,6 +14,5 @@ public class OrderRes {
     private String customerId;
     private OrderStatus status;
     private Integer totalAmount;
-    private List<OrderItemRes> items;
     private Instant createdDate;
 }

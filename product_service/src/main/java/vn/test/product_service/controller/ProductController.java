@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.test.product_service.dto.BaseResponse;
 import vn.test.product_service.dto.request.CreateProductReq;
-import vn.test.product_service.dto.request.DeductStockReq;
+import vn.test.product_service.dto.request.LockProductReq;
 import vn.test.product_service.dto.request.ProductFilter;
 import vn.test.product_service.entity.Product;
 import vn.test.product_service.service.ProductService;
@@ -36,9 +36,9 @@ public class ProductController {
         return ResponseEntity.ok(new BaseResponse<>(products, "success" ));
     }
 
-    @PostMapping("/deduct-stock")
-    public ResponseEntity<BaseResponse<Void>> deductStock(@RequestBody @Valid List<DeductStockReq> deductStockReqs) {
-        productService.deductStock(deductStockReqs);
+    @PostMapping("/lock-product")
+    public ResponseEntity<BaseResponse<Void>> lockProduct(@RequestBody @Valid LockProductReq lockProductReq) {
+        productService.lock(lockProductReq);
         return ResponseEntity.ok(new BaseResponse<>(null, "success"));
     }
 }

@@ -17,7 +17,7 @@ import java.time.Instant;
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
 public class BaseEntity {
-    private Boolean isDeleted;
+    private Boolean isDeleted = false;
     @CreatedBy
     private String createdBy;
     @CreatedDate

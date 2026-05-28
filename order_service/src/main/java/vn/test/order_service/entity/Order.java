@@ -27,7 +27,4 @@ public class Order extends BaseEntity {
     @Column(name = "total_amount")
     private Integer totalAmount;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "order_id")
-    private List<OrderItem> items;
 }

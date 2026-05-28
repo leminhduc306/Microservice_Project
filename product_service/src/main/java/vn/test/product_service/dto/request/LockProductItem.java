@@ -7,9 +7,9 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class DeductStockReq {
-    @NotBlank(message = "productId cannot be blank")
-    private String productId;
+public class LockProductItem {
+    @NotBlank(message = "id cannot be blank")
+    private String id;
 
     @Min(value = 1, message = "quantity must be at least 1")
     private Integer quantity;
