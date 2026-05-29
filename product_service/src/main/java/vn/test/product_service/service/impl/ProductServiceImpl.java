@@ -53,7 +53,7 @@ public class ProductServiceImpl implements ProductService {
         var productIdQuantityMap = items.stream()
                 .collect(Collectors.toMap(LockProductItem::getId, LockProductItem::getQuantity));
 
-        List<Product> products = productRepository.findByIdIn(new ArrayList<>(productIdQuantityMap.keySet()));
+        List<Product> products = productRepository.findByIdInForUpdate(new ArrayList<>(productIdQuantityMap.keySet()));
         if (products.isEmpty()) {
             throw new ApplicationException("Product not found");
         }
