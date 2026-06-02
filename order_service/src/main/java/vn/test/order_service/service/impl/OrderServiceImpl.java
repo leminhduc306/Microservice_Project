@@ -98,4 +98,15 @@ public class OrderServiceImpl implements OrderService {
         log.info("Order created: {}", createOrder);
         return orderMapper.toResponse(createOrder);
     }
+
+    @Override
+    @Transactional
+    public void changeStatus(String orderId, OrderStatus status) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ApplicationException("Order not found: " + orderId));
+
+        order.setStatus(status);
+        orderRepository.save(order);
+        log.info("Order status changed: {}, status: {}", orderId, status);
+    }
 }

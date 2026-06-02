@@ -11,4 +11,5 @@ public interface ProductService {
     Product create (CreateProductReq createProductReq);
     List<Product> search(ProductFilter productFilter);
     void lock(LockProductReq lockProductReq);
+    void lockProduct(LockProductReq lockProductReq);
 }

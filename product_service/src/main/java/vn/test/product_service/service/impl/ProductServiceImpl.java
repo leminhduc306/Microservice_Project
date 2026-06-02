@@ -2,6 +2,9 @@ package vn.test.product_service.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.test.product_service.dto.request.CreateProductReq;
@@ -17,6 +20,8 @@ import vn.test.product_service.service.ProductService;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -27,6 +32,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductMapper productMapper;
+    private final RedissonClient redissonClient;
 
     @Override
     @Transactional
@@ -66,5 +72,88 @@ public class ProductServiceImpl implements ProductService {
         });
 
         productRepository.saveAll(products);
+    }
+
+    @Override
+    @Transactional
+    public void lockProduct(LockProductReq lockProductReq) {
+        List<LockProductItem> items = lockProductReq.getItems();
+
+        if (items == null || items.isEmpty()) {
+            throw new RuntimeException("Lock product items must not be empty");
+        }
+
+        List<String> sortedIds = items.stream()
+                .map(LockProductItem::getId)
+                .sorted()
+                .toList();
+
+        List<RLock> locks = sortedIds.stream()
+                .map(id -> redissonClient.getLock("lock:product:" + id))
+                .toList();
+
+        RLock multiLock = redissonClient.getMultiLock(
+                locks.toArray(new RLock[0])
+        );
+
+        try {
+            boolean isLocked = multiLock.tryLock(10, 5, TimeUnit.SECONDS);
+
+            if (!isLocked) {
+                throw new ApplicationException("Server busy, please try again later");
+            }
+
+            log.info("Acquired Redis lock for [{}]", locks);
+            Thread.sleep(3000);
+            Map<String, Integer> productIdQuantityMap = items.stream()
+                    .collect(Collectors.toMap(
+                            LockProductItem::getId,
+                            LockProductItem::getQuantity
+                    ));
+
+            List<Product> products = productRepository.findByIdIn(
+                    new ArrayList<>(productIdQuantityMap.keySet())
+            );
+
+            if (products.isEmpty()) {
+                throw new ApplicationException("Product not found");
+            }
+
+            if (products.size() != productIdQuantityMap.size()) {
+                throw new ApplicationException("Some products were not found");
+            }
+
+            products.forEach(product -> {
+                Integer quantity = productIdQuantityMap.get(product.getId());
+
+                if (quantity == null || quantity <= 0) {
+                    throw new ApplicationException("Invalid quantity for product " + product.getId());
+                }
+
+                int remainStock = product.getStock() - quantity;
+
+                if (remainStock < 0) {
+                    throw new ApplicationException(
+                            "Product " + product.getId() + " is out of stock"
+                    );
+                }
+                product.setStock(remainStock);
+            });
+            productRepository.saveAll(products);
+
+            log.info("Updated stock successfully for products [{}]", sortedIds);
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Process interrupted", e);
+
+        } finally {
+            log.info("Waiting for unlock products [{}]", sortedIds);
+
+            if (multiLock.isHeldByCurrentThread()) {
+                multiLock.unlock();
+                log.info("Unlock success for products [{}]", sortedIds);
+            }
+        }
     }
 }
