@@ -3,6 +3,7 @@ package vn.test.product_service.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,6 +23,8 @@ import java.util.List;
 @RequestMapping("/v1/products")
 @RequiredArgsConstructor
 public class ProductController {
+    @Value("${server.port}")
+    private String port;
 
     private final ProductService productService;
 
@@ -32,6 +35,7 @@ public class ProductController {
 
     @PostMapping("/search")
     public ResponseEntity<BaseResponse<List<Product>>> search(@RequestBody ProductFilter productFilter) {
+        log.info("Search product handled by port {}", port);
         List<Product> products = productService.search(productFilter);
         return ResponseEntity.ok(new BaseResponse<>(products, "success" ));
     }

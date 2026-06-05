@@ -96,10 +96,12 @@ public class ProductServiceImpl implements ProductService {
                 locks.toArray(new RLock[0])
         );
 
-        try {
-            boolean isLocked = multiLock.tryLock(10, 5, TimeUnit.SECONDS);
+        boolean locked = false;
 
-            if (!isLocked) {
+        try {
+            locked = multiLock.tryLock(10, 30, TimeUnit.SECONDS);
+
+            if (!locked) {
                 throw new ApplicationException("Server busy, please try again later");
             }
 
@@ -150,7 +152,7 @@ public class ProductServiceImpl implements ProductService {
         } finally {
             log.info("Waiting for unlock products [{}]", sortedIds);
 
-            if (multiLock.isHeldByCurrentThread()) {
+            if (locked) {
                 multiLock.unlock();
                 log.info("Unlock success for products [{}]", sortedIds);
             }

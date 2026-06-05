@@ -21,7 +21,7 @@ public class ProductClientImpl implements ProductClient {
     public List<ProductDTO> getProductsByIds(ProductFilter productFilter) {
         BaseResponse<List<ProductDTO>> response = webClientBuilder.build()
                 .post()
-                .uri("http://localhost:8080/v1/products/search")
+                .uri("http://product-service/v1/products/search")
                 .bodyValue(productFilter)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<BaseResponse<List<ProductDTO>>>() {})
