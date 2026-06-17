@@ -8,4 +8,4 @@ keycloak:
   realm: microservice
   resource: backend
   credentials:
-    secret: bGcThqSTQQCiPIZFnrUyA0UtjdMbokdN
+    secret: BtMTaamAsgx5HIgqaxK9Ad3Jgt0UECtS

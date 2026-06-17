@@ -8,7 +8,7 @@ spring:
   application:
     name: product-service
   datasource:
-    url: jdbc:mysql://localhost:3307/products
+    url: jdbc:mysql://localhost:3307/products?createDatabaseIfNotExist=true
     username: root
     password: root
   jpa:

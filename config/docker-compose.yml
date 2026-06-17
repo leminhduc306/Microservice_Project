@@ -102,6 +102,53 @@ services:
     networks:
       - mpm-network
 
+  elasticsearch:
+    image: elasticsearch:7.17.10
+    container_name: micro-elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - elk-network
+
+  logstash:
+    container_name: micro-logstash
+    image: logstash:7.17.10
+    ports:
+      - "5044:5044"
+      - "5000:5000/tcp"
+      - "5000:5000/udp"
+    volumes:
+      - ./logstash/config/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    environment:
+      LS_JAVA_OPTS: "-Xms256m -Xmx256m"
+    networks:
+      - mpm-network
+      - elk-network
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    container_name: kb-container
+    image: kibana:7.17.10
+    environment:
+      - ELASTICSEARCH_HOSTS=http://micro-elasticsearch:9200
+    networks:
+      - elk-network
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+
 volumes:
   mysql_data:
   redis_data:
@@ -109,4 +156,6 @@ volumes:
 
 networks:
   mpm-network:
+    driver: bridge
+  elk-network:
     driver: bridge
